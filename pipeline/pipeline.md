@@ -4,8 +4,98 @@ Main objective: obtain a dataset similar to the one in https://huggingface.co/da
 - Obtain some instances (data points) already labelled
 - Fine tune a model using the previous data points to label the rest of the dataset.
 
-## Remarks:
-- The dataset meta4xnli contains set of tokens + label (0/1) in English and Spanish
+## Step 0: Align also the meta4xnli dataset (the splits of xnli seem aligned - check because some sentences are missing as ds is smaller)
+
+file | ES/EN | CAT | comparison
+
+esxnli_hyp | - | no existe | -
+esxnli_prem | - | no existe | - 
+xnli_dev_hyp | 2490 | 2490 | matches
+xnli_dev_prem | 830 | 847 | 13 más en cat: drop these in cat: {137-138, 191-192, 204-205, 230-231, 335-337, 383-384, 414-415, 501-502, 504-505, 521-522, 532-533, 536-537, 541-542, 548-549, 642-643, 649-650}
+
+xnli_test_hyp |  5010 | 5008 | 2 menos en cat: drop these in EN/ES: 951, 
+xnli_test_prem |  1670  | 1759 | 88 mas en cat: drop these in cat: {75-76, 79-80, 81-82, 84-85, 88-89, 95-96, 98-99, 104-105, 106-107, 108-109, 112-113, 117-118, 125-126, 138-139, 140-141, 142-143, 152-153, 154-155, 157-158, 160-161, 162-163, 164-165, 171-172, 174-175, 177-178, 181-182, 184-185, 188-189, 191-192, 194-195, 202-203, 311-312, 314-315, 318-319, 323-324, 325-326, 328-329, 349-350, 372-373, 384-385, 386-387, 400-401, 419-420, 482-483, 488-489, 492-493, 494-495, 511-512, 520-521, 533-534, 546-547, 554-555, 558-559, 562-563, 616-617, 749-750, 758-759, 760-761, 764-765, 966-967, 969-970, 985-986, 988-989, 993-994, 1113-1114, 1145-1146, 1148-1149, 1152-1153, 1155-1156, 1167-1168, 1169-1170, 1181-1182, 1183-1184, 1187-1188, 1201-1202, 1204-1205, 1207-1208, 1209-1210, 1216-1217, 1219-1220, 1222-1223, 1558-1559, 1568-1569, 1577-1579, 1580-1581, 1601-1602, 1605-1606, 1637-1638}
+
+
+
+## Step 1: Tokenize catalan dataset xnli
+
+## Step 2: Align the token and propagate the labels
+
+align tokens (es-cat and en-cat), propagate the labels for the aligned tokens. Two possible labels one per language.
+
+## Step 3: Align the spanish tokens and the english tokens
+
+-Sentences have id
+-2 aligned tokens (es-en) can have different labels, if so -> the token is set to uncertain in the aligned token in catalan (in both projections)
+-There will be tokens that are not aligned in English-Spanish, thus they do not give us any info and that is all.
+- This is only used to mark as uncertain some label that has been projected, but if there is no consensum (not alignment in ES-EN), then we skip that token
+
+## Step 4: There will be label projections that do not match -> uncertain cases
+
+- with this we unlabelled the cases that show missmatch to ensure robutness in the ones that did work
+
+
+
+## Step 5: Automatic Gap-Filling
+
+Fine-tune Multilingual Model on Projected Data, for example: "projecte-aina/roberta-base-ca-v2" and then, once fine tuned, predict the labels in the unlabeled sentences.
+
+```
+from transformers import AutoModelForTokenClassification, Trainer
+
+# Use your projected CA data as training set
+model = AutoModelForTokenClassification.from_pretrained(
+    "projecte-aina/roberta-base-ca-v2",  # Or xlm-roberta-large
+    num_labels=2  # 0: literal, 1: metaphor
+)
+
+# Fine-tune on projected Catalan labels
+trainer = Trainer(
+    model=model,
+    train_dataset=projected_ca_dataset,
+    # ... training args
+)
+trainer.train()
+``` 
+
+
+## Example of how the final dataset must look like:
+
+{
+  "sentence_id": "xnli_ca_dev_001",
+  "text": "El món és en gran part fruit de la ciència.",
+  "tokens": ["El", "món", "és", "en", "gran", "part", "fruit", "de", "la", "ciència", "."],
+  "labels": [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+  "pos_tags": ["DET", "NOUN", "VERB", "ADP", "ADJ", "NOUN", "NOUN", "ADP", "DET", "NOUN", "PUNCT"],
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----
+
 
 ## Step 1: Project EN -> CAT
 
@@ -15,12 +105,9 @@ Main objective: obtain a dataset similar to the one in https://huggingface.co/da
 
 - Take the Spanish split, detokenize it, traslate it to catalan, tokenize the catalan translation (points or commas goes with the previous token, as it is how is done in the meta4xnli dataset), align tokens (es-cat), propagate the labels for the aligned tokens.
 
-## Step 3: Align the spanish tokens and the english tokens
 
--Sentences have id
--2 aligned tokens (es-en) can have different labels, if so -> the token is set to uncertain in the aligned token in catalan for both translations.
--There will be tokens that are not aligned in English-Spanish, thus they do not give us any info and that is all.
-- This is only used to mark as uncertain some label that has been projected, but if there is no consensum (not alignment in ES-EN), then we skip that token
+If we would like to do the translation to catalan instead of using aina dataset:
+
 
 ## Step 4: Choose the best catalan translation based on the projections (the objective will be to maintain the translation that keeps more metaphors - more 1 in the labels of the tokens)
 
@@ -216,37 +303,3 @@ def score_projection(src_tokens, src_labels, ca_tokens, align_links,
     }
     return score, details
 ```
-
-## Step 5: Automatic Gap-Filling
-
-Fine-tune Multilingual Model on Projected Data, for example: "projecte-aina/roberta-base-ca-v2" and then, once fine tuned, predict the labels in the unlabeled sentences.
-
-```
-from transformers import AutoModelForTokenClassification, Trainer
-
-# Use your projected CA data as training set
-model = AutoModelForTokenClassification.from_pretrained(
-    "projecte-aina/roberta-base-ca-v2",  # Or xlm-roberta-large
-    num_labels=2  # 0: literal, 1: metaphor
-)
-
-# Fine-tune on projected Catalan labels
-trainer = Trainer(
-    model=model,
-    train_dataset=projected_ca_dataset,
-    # ... training args
-)
-trainer.train()
-``` 
-
-
-## Example of how the final dataset must look like:
-
-{
-  "sentence_id": "xnli_ca_dev_001",
-  "text": "El món és en gran part fruit de la ciència.",
-  "tokens": ["El", "món", "és", "en", "gran", "part", "fruit", "de", "la", "ciència", "."],
-  "labels": [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-  "pos_tags": ["DET", "NOUN", "VERB", "ADP", "ADJ", "NOUN", "NOUN", "ADP", "DET", "NOUN", "PUNCT"],
-  "source": "projection_from_es",
-}
