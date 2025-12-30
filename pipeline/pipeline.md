@@ -4,7 +4,10 @@ Main objective: obtain a dataset similar to the one in https://huggingface.co/da
 - Obtain some instances (data points) already labelled
 - Fine tune a model using the previous data points to label the rest of the dataset.
 
-## Step 0: Align also the meta4xnli dataset (the splits of xnli seem aligned - check because some sentences are missing as ds is smaller)
+
+## Step 0: Load and tokenize catalan xnli dataset
+
+## Step 1: Align also the meta4xnli dataset (the splits of xnli seem aligned - check because some sentences are missing as ds is smaller)
 
 splits | ES/EN | CAT | comparison
 
@@ -21,9 +24,6 @@ xnli_test_prem |  1670  | 1759 | 88 instances drop in the catalan dataset
 
 {75-76, 79-80, 81-82, 84-85, 88-89, 95-96, 98-99, 104-105, 106-107, 108-109, 112-113, 117-118, 125-126, 138-139, 140-141, 142-143, 152-153, 154-155, 157-158, 160-161, 162-163, 164-165, 171-172, 174-175, 177-178, 181-182, 184-185, 188-189, 191-192, 194-195, 202-203, 311-312, 314-315, 318-319, 323-324, 325-326, 328-329, 349-350, 372-373, 384-385, 386-387, 400-401, 419-420, 482-483, 488-489, 492-493, 494-495, 511-512, 520-521, 533-534, 546-547, 554-555, 558-559, 562-563, 616-617, 749-750, 758-759, 760-761, 764-765, 966-967, 969-970, 985-986, 988-989, 993-994, 1113-1114, 1145-1146, 1148-1149, 1152-1153, 1155-1156, 1167-1168, 1169-1170, 1181-1182, 1183-1184, 1187-1188, 1201-1202, 1204-1205, 1207-1208, 1209-1210, 1216-1217, 1219-1220, 1222-1223, 1558-1559, 1568-1569, 1577-1579, 1580-1581, 1601-1602, 1605-1606, 1637-1638}
 
-
-
-## Step 1: Tokenize catalan dataset xnli
 
 ## Step 2: Align the token and propagate the labels
 
