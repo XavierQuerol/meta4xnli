@@ -31,16 +31,21 @@ align tokens (es-cat and en-cat), propagate the labels for the aligned tokens. T
 
 ## Step 3: Align the spanish tokens and the english tokens
 
--Sentences have id
 -2 aligned tokens (es-en) can have different labels, if so -> the token is set to uncertain in the aligned token in catalan (in both projections)
 -There will be tokens that are not aligned in English-Spanish, thus they do not give us any info and that is all.
 - This is only used to mark as uncertain some label that has been projected, but if there is no consensum (not alignment in ES-EN), then we skip that token
 
-## Step 4: There will be label projections that do not match -> uncertain cases
+---
 
 - with this we unlabelled the cases that show missmatch to ensure robutness in the ones that did work
 
+- Once we have the ES -> CAT projection, and the EN-> CAT projection, we aligned SPANISH-ENGLISH and we mark as uncertain when, there is a label projected to catalan from spanish different from a label projected to catalan from english:
 
+token1-es aligned to token1-en, token1-es aligned to token1-cat and token1-en aligned to token1-cat. I guess token1-en and token1-cat transfered their labels to the token1-cat, BUT these two labels transfered can be different. If they are different this case is mark as uncertain -1. 
+
+In any other case this approach give us no information.
+
+Do this for all the 4 files in the languages and save the new catalan projections in a folder projected_labels_triangulated/ 
 
 ## Step 5: Automatic Gap-Filling
 
