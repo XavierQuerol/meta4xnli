@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import random
 from collections import defaultdict
 
 # Page configuration
@@ -11,9 +12,9 @@ BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 DATA_PATH = os.path.join(BASE_PATH, "data", "meta4xnli", "detection")
 
 # Source data
-EN_PATH = os.path.join(DATA_PATH, "source_datasets", "en")
-ES_PATH = os.path.join(DATA_PATH, "source_datasets", "es")
-CA_PATH = os.path.join(DATA_PATH, "source_datasets", "ca")
+EN_PATH = os.path.join(DATA_PATH, "source_datasets_filtered", "en")
+ES_PATH = os.path.join(DATA_PATH, "source_datasets_filtered", "es")
+CA_PATH = os.path.join(DATA_PATH, "source_datasets_filtered", "ca")
 
 # Projected data
 CA_EN_PROJ_PATH = os.path.join(DATA_PATH, "projected_labels", "ca-en")
@@ -133,22 +134,34 @@ def save_retranslated_sentence(dataset_name, sentence_id, new_sentence):
 
 # --- UI & LOGIC ---
 
-def get_sentence_to_validate(data, processed_ids):
-    """Finds the next sentence to validate, prioritizing those with metaphors."""
+def get_sentence_to_validate(data, processed_ids, priority="metaphors"):
+    """Finds the next sentence to validate based on the selected priority."""
     num_sentences = len(data["es"])
-    
-    # Priority 1: Sentences with metaphors in both EN and ES
-    for i in range(num_sentences):
-        if i not in processed_ids:
-            if "B-METAPHOR" in data["es"][i]["labels"] and "B-METAPHOR" in data["en"][i]["labels"]:
+    available_indices = [i for i in range(num_sentences) if i not in processed_ids]
+
+    if not available_indices:
+        return None
+
+    if priority == "metaphors":
+        # Priority 1: Sentences with metaphors in both ES and CA-ES projection
+        for i in available_indices:
+            if "B-METAPHOR" in data["es"][i]["labels"] and "B-METAPHOR" in data["ca_es_proj"][i]["labels"]:
                 return i
-    
-    # Priority 2: Any remaining sentence
-    for i in range(num_sentences):
-        if i not in processed_ids:
-            return i
-            
-    return None
+        # Priority 2: Any remaining sentence
+        return available_indices[0]
+
+    elif priority == "no_metaphors":
+        # Priority 1: Sentences with no metaphors in either ES or CA-ES projection
+        for i in available_indices:
+            if "B-METAPHOR" not in data["es"][i]["labels"] and "B-METAPHOR" not in data["ca_es_proj"][i]["labels"]:
+                return i
+        # Priority 2: Any remaining sentence
+        return available_indices[0]
+
+    elif priority == "random":
+        return random.choice(available_indices)
+        
+    return available_indices[0] # Default fallback
 
 def display_sentence(title, words, labels):
     """Displays a sentence with highlighted metaphors and labels below each word."""
@@ -183,6 +196,8 @@ if 'correction_mode' not in st.session_state:
     st.session_state.correction_mode = False
 if 'dataset_name' not in st.session_state:
     st.session_state.dataset_name = ""
+if 'priority' not in st.session_state:
+    st.session_state.priority = "metaphors"
 
 # --- Sidebar ---
 st.sidebar.header("Selección de Dataset")
@@ -192,8 +207,21 @@ dataset_choice = st.sidebar.selectbox(
     index=0
 )
 
-if dataset_choice != st.session_state.dataset_name:
+st.sidebar.header("Prioridad de Validación")
+priority_choice = st.sidebar.radio(
+    "Elige la prioridad para validar frases:",
+    ("metaphors", "no_metaphors", "random"),
+    format_func=lambda x: {
+        "metaphors": "Con metáforas (ambos)",
+        "no_metaphors": "Sin metáforas (ninguno)",
+        "random": "Aleatorio"
+    }[x],
+    index=["metaphors", "no_metaphors", "random"].index(st.session_state.priority)
+)
+
+if dataset_choice != st.session_state.dataset_name or priority_choice != st.session_state.priority:
     st.session_state.dataset_name = dataset_choice
+    st.session_state.priority = priority_choice
     st.session_state.sentence_id = None # Reset on dataset change
     st.session_state.manual_validation = False
     st.session_state.correction_mode = False
@@ -208,7 +236,7 @@ if st.session_state.dataset_name:
     processed_ids = validated_ids.union(doubtful_ids).union(corrected_ids)
     
     if st.session_state.sentence_id is None:
-        st.session_state.sentence_id = get_sentence_to_validate(data, processed_ids)
+        st.session_state.sentence_id = get_sentence_to_validate(data, processed_ids, st.session_state.priority)
 
     sentence_id = st.session_state.sentence_id
 
