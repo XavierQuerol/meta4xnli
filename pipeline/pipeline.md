@@ -1,7 +1,7 @@
 # Pipeline of the project
 
 Main objective: obtain a dataset similar to the one in https://huggingface.co/datasets/HiTZ/meta4xnli but in catalan. To obtain this, we have to achieve 2 subtasks:
-- Obtain some instances (data points) already labelled
+- Obtain some instances (data points) already labelled by projection and then manually review them
 - Fine tune a model using the previous data points to label the rest of the dataset.
 
 
